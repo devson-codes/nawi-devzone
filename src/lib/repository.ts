@@ -1,12 +1,15 @@
 import Database from '@tauri-apps/plugin-sql'
 import { isTauri } from '@tauri-apps/api/core'
-import { emptyData, type AppData, type ChecklistItem, type DocPage, type Project, type Task } from './model'
+import { emptyData, makeDailyOccurrence, type AppData, type ChecklistItem, type DocPage, type Project, type RecurringTask, type Task } from './model'
 
 export interface Repository {
   load(): Promise<AppData>
   saveProject(project: Project): Promise<void>
   saveTask(task: Task): Promise<void>
   deleteTask(id: string): Promise<void>
+  saveRecurringTask(task: RecurringTask): Promise<void>
+  deleteRecurringTask(id: string): Promise<void>
+  ensureDailyTasks(date: string): Promise<void>
   savePage(page: DocPage): Promise<void>
   deletePages(ids: string[]): Promise<void>
   reorderTasks(tasks: Task[]): Promise<void>
@@ -18,7 +21,13 @@ class BrowserRepository implements Repository {
   private read(): AppData {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
-      return stored ? JSON.parse(stored) as AppData : emptyData()
+      if (!stored) return emptyData()
+      const data = JSON.parse(stored) as AppData
+      return {
+        ...data,
+        recurringTasks: (data.recurringTasks ?? []).map(task => ({ ...task, links: task.links ?? [] })),
+        tasks: (data.tasks ?? []).map(task => ({ ...task, links: task.links ?? [], recurringTaskId: task.recurringTaskId ?? null, occurrenceDate: task.occurrenceDate ?? null })),
+      }
     } catch {
       return emptyData()
     }
@@ -40,6 +49,24 @@ class BrowserRepository implements Repository {
   async deleteTask(id: string) {
     this.update(data => { data.tasks = data.tasks.filter(item => item.id !== id) })
   }
+  async saveRecurringTask(task: RecurringTask) {
+    this.update(data => { data.recurringTasks = [...data.recurringTasks.filter(item => item.id !== task.id), task] })
+  }
+  async deleteRecurringTask(id: string) {
+    this.update(data => { data.recurringTasks = data.recurringTasks.filter(item => item.id !== id) })
+  }
+  async ensureDailyTasks(date: string) {
+    this.update(data => {
+      for (const template of data.recurringTasks) {
+        if (template.lastGeneratedDate === date || !data.projects.some(project => project.id === template.projectId && !project.archived)) continue
+        if (!data.tasks.some(task => task.recurringTaskId === template.id && task.occurrenceDate === date)) {
+          const position = Math.max(-1, ...data.tasks.filter(task => task.status === 'todo').map(task => task.position)) + 1
+          data.tasks.push(makeDailyOccurrence(template, date, position))
+        }
+        template.lastGeneratedDate = date
+      }
+    })
+  }
   async savePage(page: DocPage) {
     this.update(data => { data.pages = [...data.pages.filter(item => item.id !== page.id), page] })
   }
@@ -55,19 +82,21 @@ class BrowserRepository implements Repository {
 }
 
 type ProjectRow = Omit<Project, 'archived'> & { archived: number }
-type TaskRow = Omit<Task, 'tags' | 'checklist'> & { tags: string }
+type TaskRow = Omit<Task, 'tags' | 'links' | 'checklist'> & { tags: string; links: string }
 type ChecklistRow = Omit<ChecklistItem, 'checked'> & { checked: number }
+type RecurringTaskRow = Omit<RecurringTask, 'tags' | 'links' | 'checklist'> & { tags: string; links: string; checklist: string }
 
 class SqliteRepository implements Repository {
   private db: Database
   constructor(db: Database) { this.db = db }
 
   async load(): Promise<AppData> {
-    const [projectRows, taskRows, checklistRows, pages] = await Promise.all([
+    const [projectRows, taskRows, checklistRows, pages, recurringRows] = await Promise.all([
       this.db.select<ProjectRow[]>('SELECT * FROM projects ORDER BY createdAt DESC'),
       this.db.select<TaskRow[]>('SELECT * FROM tasks ORDER BY position ASC'),
       this.db.select<ChecklistRow[]>('SELECT * FROM checklist_items ORDER BY position ASC'),
       this.db.select<DocPage[]>('SELECT * FROM pages ORDER BY position ASC'),
+      this.db.select<RecurringTaskRow[]>('SELECT * FROM recurring_tasks ORDER BY createdAt DESC'),
     ])
     const checklist = checklistRows.map(item => ({ ...item, checked: Boolean(item.checked) }))
     return {
@@ -75,9 +104,11 @@ class SqliteRepository implements Repository {
       tasks: taskRows.map(item => ({
         ...item,
         tags: JSON.parse(item.tags || '[]') as string[],
+        links: JSON.parse(item.links || '[]') as Task['links'],
         checklist: checklist.filter(entry => entry.taskId === item.id),
       })),
       pages,
+      recurringTasks: recurringRows.map(item => ({ ...item, tags: JSON.parse(item.tags || '[]') as string[], links: JSON.parse(item.links || '[]') as RecurringTask['links'], checklist: JSON.parse(item.checklist || '[]') as string[] })),
     }
   }
 
@@ -90,8 +121,8 @@ class SqliteRepository implements Repository {
 
   async saveTask(t: Task) {
     await this.db.execute(
-      'INSERT INTO tasks (id,projectId,title,description,status,priority,dueDate,tags,position,createdAt,updatedAt) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(id) DO UPDATE SET projectId=$2,title=$3,description=$4,status=$5,priority=$6,dueDate=$7,tags=$8,position=$9,updatedAt=$11',
-      [t.id, t.projectId, t.title, t.description, t.status, t.priority, t.dueDate, JSON.stringify(t.tags), t.position, t.createdAt, t.updatedAt],
+      'INSERT INTO tasks (id,projectId,title,description,status,priority,dueDate,tags,links,position,createdAt,updatedAt,recurringTaskId,occurrenceDate) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT(id) DO UPDATE SET projectId=$2,title=$3,description=$4,status=$5,priority=$6,dueDate=$7,tags=$8,links=$9,position=$10,updatedAt=$12,recurringTaskId=$13,occurrenceDate=$14',
+      [t.id, t.projectId, t.title, t.description, t.status, t.priority, t.dueDate, JSON.stringify(t.tags), JSON.stringify(t.links), t.position, t.createdAt, t.updatedAt, t.recurringTaskId, t.occurrenceDate],
     )
     const ids = t.checklist.map(item => item.id)
     if (ids.length) {
@@ -111,6 +142,33 @@ class SqliteRepository implements Repository {
   async deleteTask(id: string) {
     await this.db.execute('DELETE FROM checklist_items WHERE taskId=$1', [id])
     await this.db.execute('DELETE FROM tasks WHERE id=$1', [id])
+  }
+
+  async saveRecurringTask(t: RecurringTask) {
+    await this.db.execute(
+      'INSERT INTO recurring_tasks (id,projectId,title,description,priority,tags,links,checklist,lastGeneratedDate,createdAt,updatedAt) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(id) DO UPDATE SET title=$3,description=$4,priority=$5,tags=$6,links=$7,checklist=$8,updatedAt=$11',
+      [t.id, t.projectId, t.title, t.description, t.priority, JSON.stringify(t.tags), JSON.stringify(t.links), JSON.stringify(t.checklist), t.lastGeneratedDate, t.createdAt, t.updatedAt],
+    )
+  }
+
+  async deleteRecurringTask(id: string) {
+    await this.db.execute('DELETE FROM recurring_tasks WHERE id=$1', [id])
+  }
+
+  async ensureDailyTasks(date: string) {
+    const templates = await this.db.select<RecurringTaskRow[]>(
+      'SELECT recurring_tasks.* FROM recurring_tasks JOIN projects ON projects.id=recurring_tasks.projectId WHERE projects.archived=0 AND (lastGeneratedDate IS NULL OR lastGeneratedDate<>$1)', [date],
+    )
+    for (const row of templates) {
+      const existing = await this.db.select<{ id: string }[]>('SELECT id FROM tasks WHERE recurringTaskId=$1 AND occurrenceDate=$2 LIMIT 1', [row.id, date])
+      if (!existing.length) {
+        const template: RecurringTask = { ...row, tags: JSON.parse(row.tags || '[]') as string[], links: JSON.parse(row.links || '[]') as RecurringTask['links'], checklist: JSON.parse(row.checklist || '[]') as string[] }
+        const result = await this.db.select<{ position: number }[]>('SELECT MAX(position) AS position FROM tasks WHERE status=$1', ['todo'])
+        const position = (result[0]?.position ?? -1) + 1
+        await this.saveTask(makeDailyOccurrence(template, date, position))
+      }
+      await this.db.execute('UPDATE recurring_tasks SET lastGeneratedDate=$1 WHERE id=$2', [date, row.id])
+    }
   }
 
   async savePage(p: DocPage) {

@@ -14,6 +14,7 @@ interface Props {
   onSave: (page: DocPage) => Promise<void>
   onDelete: (ids: string[]) => Promise<void>
   onDirtyChange: (dirty: boolean) => void
+  initialPageId?: string | null
 }
 
 function descendantIds(pages: DocPage[], id: string): string[] {
@@ -21,12 +22,21 @@ function descendantIds(pages: DocPage[], id: string): string[] {
   return [id, ...children.flatMap(page => descendantIds(pages, page.id))]
 }
 
-export function DocsView({ project, pages, onSave, onDelete, onDirtyChange }: Props) {
+export function DocsView({ project, pages, onSave, onDelete, onDirtyChange, initialPageId }: Props) {
   const projectPages = useMemo(() => pages.filter(page => page.projectId === project.id), [pages, project.id])
-  const [selectedId, setSelectedId] = useState<string | null>(projectPages[0]?.id ?? null)
-  const [draft, setDraft] = useState<DocPage | null>(projectPages[0] ? { ...projectPages[0] } : null)
+  const initialPage = projectPages.find(page => page.id === initialPageId) ?? projectPages[0] ?? null
+  const [selectedId, setSelectedId] = useState<string | null>(initialPage?.id ?? null)
+  const [draft, setDraft] = useState<DocPage | null>(initialPage ? { ...initialPage } : null)
   const [saving, setSaving] = useState(false)
-  const [expanded, setExpanded] = useState<string[]>([])
+  const [expanded, setExpanded] = useState<string[]>(() => {
+    const ancestors: string[] = []
+    let parentId = initialPage?.parentId
+    while (parentId && !ancestors.includes(parentId)) {
+      ancestors.push(parentId)
+      parentId = projectPages.find(page => page.id === parentId)?.parentId ?? null
+    }
+    return ancestors
+  })
   const [tab, setTab] = useState('write')
   const selected = projectPages.find(page => page.id === selectedId) ?? null
   const dirty = Boolean(draft && selected && (draft.title !== selected.title || draft.content !== selected.content || draft.parentId !== selected.parentId))

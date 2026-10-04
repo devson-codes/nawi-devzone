@@ -8,7 +8,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { newId, now, type ChecklistItem, type Priority, type Project, type Task, type TaskStatus } from '@/lib/model'
+import { TaskLinksEditor } from '@/components/TaskLinksEditor'
+import { normalizeExternalUrl } from '@/lib/taskLinks'
+import { newId, now, type ChecklistItem, type Priority, type Project, type Task, type TaskLink, type TaskStatus } from '@/lib/model'
 
 interface Props {
   open: boolean
@@ -31,6 +33,7 @@ export function TaskDialog({ open, onOpenChange, task, projects, initialProjectI
   const [dueDate, setDueDate] = useState(task?.dueDate ?? '')
   const [tags, setTags] = useState(task?.tags.join(', ') ?? '')
   const [checklist, setChecklist] = useState<ChecklistItem[]>(task?.checklist ?? [])
+  const [links, setLinks] = useState<TaskLink[]>(task?.links ?? [])
   const [newItem, setNewItem] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -44,7 +47,7 @@ export function TaskDialog({ open, onOpenChange, task, projects, initialProjectI
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
-    if (!title.trim() || !projectId) return
+    if (!title.trim() || !projectId || links.some(link => !normalizeExternalUrl(link.url))) return
     setSaving(true)
     try {
       const id = task?.id ?? newId()
@@ -53,10 +56,13 @@ export function TaskDialog({ open, onOpenChange, task, projects, initialProjectI
         id, projectId, title: title.trim(), description, status, priority,
         dueDate: dueDate || null,
         tags: [...new Set(tags.split(',').map(tag => tag.trim()).filter(Boolean))],
+        links: links.map(link => ({ label: link.label.trim(), url: normalizeExternalUrl(link.url)! })),
         position: task && task.status === status ? task.position : nextPosition(status),
         createdAt: task?.createdAt ?? timestamp,
         updatedAt: timestamp,
         checklist: checklist.map((item, index) => ({ ...item, taskId: id, position: index })),
+        recurringTaskId: task?.recurringTaskId ?? null,
+        occurrenceDate: task?.occurrenceDate ?? null,
       }
       await onSave(updated)
       onOpenChange(false)
@@ -115,6 +121,7 @@ export function TaskDialog({ open, onOpenChange, task, projects, initialProjectI
               <TabsContent value="preview"><div className="markdown min-h-36 rounded-lg border p-4"><ReactMarkdown remarkPlugins={[remarkGfm]}>{description || '*Nothing to preview yet.*'}</ReactMarkdown></div></TabsContent>
             </Tabs>
           </div>
+          <TaskLinksEditor links={links} onChange={setLinks} />
           <div className="space-y-3">
             <div className="flex items-center justify-between"><span className="text-sm font-semibold">Checklist</span><span className="text-xs text-muted-foreground">{checklist.filter(item => item.checked).length}/{checklist.length} done</span></div>
             {checklist.map(item => <div key={item.id} className="flex items-center gap-3 rounded-lg border px-3 py-2">
@@ -126,7 +133,7 @@ export function TaskDialog({ open, onOpenChange, task, projects, initialProjectI
           </div>
           <DialogFooter className="flex-col sm:flex-row sm:justify-between">
             {task ? <Button type="button" variant="destructive" onClick={removeTask}><Trash2 /> Delete task</Button> : <span />}
-            <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" disabled={saving || !title.trim() || !projectId}><Check /> {saving ? 'Saving…' : 'Save task'}</Button></div>
+            <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" disabled={saving || !title.trim() || !projectId || links.some(link => !normalizeExternalUrl(link.url))}><Check /> {saving ? 'Saving…' : 'Save task'}</Button></div>
           </DialogFooter>
         </form>
       </DialogContent>

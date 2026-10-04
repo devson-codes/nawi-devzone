@@ -136,6 +136,16 @@ button { cursor: pointer; }
 
 .app-shell { display: flex; min-height: 100vh; width: 100%; }
 .app-sidebar { width: 248px; flex: 0 0 248px; display: flex; flex-direction: column; min-height: 100vh; border-right: 1px solid var(--border); background: #fff; color: #34445b; }
+.app-sidebar.is-collapsed { width: 64px; flex-basis: 64px; }
+.sidebar-brand { display: flex; min-height: 82px; align-items: flex-start; justify-content: space-between; gap: 6px; padding: 28px 18px 24px 24px; }
+.sidebar-brand-name { white-space: nowrap; }
+.sidebar-collapse-button { display: grid; width: 22px; height: 22px; flex: none; place-items: center; border-radius: 4px; color: #7b899a; }
+.sidebar-collapse-button:hover { background: #edf5fd; color: #075995; }
+.app-sidebar.is-collapsed .sidebar-brand { justify-content: center; padding: 28px 0 24px; }
+.app-sidebar.is-collapsed .sidebar-brand-name, .app-sidebar.is-collapsed .sidebar-label, .app-sidebar.is-collapsed .sidebar-link-text, .app-sidebar.is-collapsed .sidebar-count, .app-sidebar.is-collapsed .sidebar-search-hint, .app-sidebar.is-collapsed .sidebar-empty-projects, .app-sidebar.is-collapsed .sidebar-footer { display: none; }
+.app-sidebar.is-collapsed .sidebar-link { justify-content: center; gap: 0; padding: 0; }
+.app-sidebar.is-collapsed .sidebar-projects { margin-top: 24px; }
+.app-sidebar.is-collapsed .sidebar-projects > div:first-child { justify-content: center; padding: 0; }
 .brand-mark { display: grid; height: 37px; width: 37px; flex: none; place-items: center; border: 1px solid #101722; border-radius: 6px; background: #191b20; color: white; font-size: 19px; font-weight: 800; }
 .sidebar-label { padding: 0 12px 8px; color: #8490a2; font-size: 10px; font-weight: 700; letter-spacing: .11em; }
 .sidebar-link { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; border: 1px solid transparent; border-radius: 5px; padding: 0 11px; color: #46566d; text-align: left; font-size: 12px; font-weight: 550; transition: background .15s, color .15s, border-color .15s; }
@@ -143,6 +153,11 @@ button { cursor: pointer; }
 .sidebar-link.active { border-color: #c8dff5; background: #eaf4ff; color: #075995; }
 .app-main { min-width: 0; flex: 1; display: flex; flex-direction: column; height: 100vh; }
 .topbar { height: 67px; flex: 0 0 67px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); background: #fff; padding: 0 33px; }
+.topbar-search { display: flex; min-width: 166px; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 5px; background: #fff; padding: 7px 9px; color: #68768a; font-size: 11px; text-align: left; }
+.topbar-search:hover { border-color: #b5d3ec; color: #075995; }
+.topbar-search kbd { margin-left: auto; border: 1px solid #e2e7ed; border-radius: 3px; background: #f8fafc; padding: 1px 4px; color: #8793a4; font-size: 10px; }
+.global-search-result { display: flex; width: 100%; align-items: center; gap: 12px; border-radius: 5px; padding: 9px 11px; text-align: left; }
+.global-search-result:hover, .global-search-result.is-highlighted { background: #eaf4ff; }
 .main-scroll { flex: 1; overflow: auto; }
 .page-wrap { max-width: 1700px; min-width: 0; margin: 0 auto; padding: 32px 32px 48px; }
 .page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; margin-bottom: 29px; }
@@ -152,12 +167,15 @@ button { cursor: pointer; }
 .board-column { min-width: 0; min-height: 550px; align-self: start; border: 1px solid var(--border); border-top-width: 2px; border-radius: 7px; background: #f4f6f8; padding: 16px 13px 18px; transition: box-shadow .15s; }
 .task-card { border: 1px solid #dce3eb; border-radius: 6px; background: white; padding: 14px; box-shadow: none; touch-action: none; transition: background .15s, border-color .15s; }
 .task-card:hover { border-color: #b5d3ec; background: #fbfdff; box-shadow: none; }
-.task-checklist { margin-top: 12px; border-top: 1px solid #e1e7ee; background: #f8fafc; margin-inline: -14px; margin-bottom: -14px; padding: 12px 14px 14px; border-radius: 0 0 5px 5px; }
-.task-checklist-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; color: #637286; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.task-checklist-heading span:last-child { color: #8190a3; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.task-card-details { margin: 12px -14px -14px; border-top: 1px solid #e1e7ee; border-radius: 0 0 5px 5px; background: #f8fafc; padding: 12px 14px 14px; }
+.task-detail-section + .task-detail-section { margin-top: 12px; border-top: 1px solid #e1e7ee; padding-top: 12px; }
+.task-detail-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; color: #637286; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.task-detail-heading span:last-child { color: #8190a3; font-weight: 600; letter-spacing: 0; text-transform: none; }
 .task-checklist-item { display: flex; align-items: center; gap: 8px; min-height: 25px; color: #34445b; font-size: 12px; line-height: 1.35; cursor: pointer; }
 .task-checklist-item input { width: 14px; height: 14px; flex: none; accent-color: #1375ba; cursor: pointer; }
 .task-checklist-item.is-complete span { color: #8390a0; text-decoration: line-through; }
+.task-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid #dbe8f3; border-radius: 4px; background: #fff; padding: 7px 8px; color: #0869a7; font-size: 11px; line-height: 1.25; text-decoration: none; }
+.task-link:hover { border-color: #a9d4f2; background: #eff8ff; }
 .project-card { display: block; min-height: 236px; border: 1px solid var(--border); border-radius: 7px; background: white; padding: 21px; box-shadow: none; transition: background .15s, border-color .15s; }
 .project-card:hover { border-color: #b5d3ec; background: #fbfdff; box-shadow: none; }
 .empty-panel { display: flex; min-height: 380px; flex-direction: column; align-items: center; justify-content: center; border: 1px dashed #cbd5e1; border-radius: 7px; background: white; padding: 32px; text-align: center; }

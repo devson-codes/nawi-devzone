@@ -1,6 +1,6 @@
 # Nawi Devzone
 
-A private, offline workspace for software projects. It has one Kanban board across projects, task details and checklists, and nested Markdown documentation. The installed app uses a local SQLite database; no account or server is needed.
+A private, offline workspace for software projects. It has one Kanban board across projects, task details and checklists, daily recurring tasks, and nested Markdown documentation. The installed app uses a local SQLite database; no account or server is needed.
 
 ## Run and build
 
@@ -24,10 +24,12 @@ For a quick interface preview in a browser, run `npm run dev` and open the displ
 ## How to use
 
 1. Create a project from the board empty state or **Projects** page.
-2. Add tasks from the project page or a Kanban column. Every task belongs to a project.
+2. Add tasks from the project page or a Kanban column. Every task belongs to a project. Add labeled web links in the task editor, or put plain and Markdown links in its description; the card collects them in a collapsible **Links** section.
 3. Use the board's project selector to see all tasks or one project's tasks. Drag cards to reorder or change status.
-4. Open a project to add Markdown documentation. Pages can have child pages; use **Move under** to move a page in the tree. Edit a page and select **Save page** to persist it.
-5. Archive a project to remove its tasks from the active board. Restore it from the **Projects** page at any time.
+4. On a project page, use **Daily recurring tasks** to create a task that repeats each day. The app creates one fresh card in **To Do** for the current local date when it opens or detects a new day while running. Each card gets its own unchecked checklist. Editing a daily task changes future cards; stopping it leaves existing cards in place. Missed days while the app was closed are not backfilled.
+5. Open a project to add Markdown documentation. Pages can have child pages; use **Move under** to move a page in the tree. Edit a page and select **Save page** to persist it.
+6. Archive a project to remove its tasks from the active board and pause its daily schedules. Restore it from the **Projects** page at any time.
+7. Press **Ctrl+F** (or use **Search** in the sidebar or top bar) to find projects, tasks, and documentation by title or content. Select a result to open it. Use the button beside **Nawi Devzone** to collapse the sidebar; that choice is remembered on this computer.
 
 ## Technical notes
 
